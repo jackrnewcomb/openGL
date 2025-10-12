@@ -135,6 +135,51 @@ int main(void)
     double lastTime = glfwGetTime();
     int nbFrames = 0;
 
+    static const GLfloat ground_vertices[] = {
+        -5.0f, 0.0f, -5.0f, 5.0f, 0.0f, -5.0f, -5.0f, 0.0f, 5.0f, 5.0f, 0.0f, 5.0f,
+    };
+
+    static const GLfloat ground_uvs[] = {
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+    };
+
+    static const GLfloat ground_normals[] = {
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+    };
+
+    // static const GLfloat ground_colors[] = {
+    //     0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f,
+    // };
+
+    static const GLuint ground_indices[] = {0, 1, 2, 2, 1, 3};
+
+    GLuint groundVertexBuffer, groundUVBuffer, groundNormalBuffer, groundElementBuffer;
+    glGenBuffers(1, &groundVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ground_vertices), ground_vertices, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &groundUVBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ground_uvs), ground_uvs, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &groundNormalBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ground_normals), ground_normals, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &groundElementBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ground_indices), ground_indices, GL_STATIC_DRAW);
+
+    GLuint greenTex;
+    glGenTextures(1, &greenTex);
+    glBindTexture(GL_TEXTURE_2D, greenTex);
+    // single green pixel (RGB)
+    unsigned char pixel[3] = {0, 204, 0};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     do
     {
 
@@ -160,6 +205,41 @@ int main(void)
         glm::mat4 ProjectionMatrix = getProjectionMatrix();
         glm::mat4 ViewMatrix = getViewMatrix();
 
+        // --- Draw ground plane ---
+        {
+            glDisable(GL_CULL_FACE);
+
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+            // UV -> attrib 1 (shader expects UV here)
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+            // normals -> attrib 2
+            glEnableVertexAttribArray(2);
+            glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+
+            // bind our green 1x1 texture to unit 0 so shader samples green
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, greenTex);
+            glUniform1i(TextureID, 0);
+
+            // index and draw
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void *)0);
+
+            // cleanup attributes
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+            glDisableVertexAttribArray(2);
+
+            glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
+        }
+
         for (int i = 0; i < 8; i++)
         {
             auto angle = glm::radians(i * 45.0f);
@@ -168,8 +248,9 @@ int main(void)
             glm::mat4 ModelMatrix = glm::mat4(1.0);
 
             // Position heads
-            ModelMatrix = glm::translate(ModelMatrix, glm::vec3(radius * cos(angle), radius * sin(angle), 1.0f));
+            ModelMatrix = glm::translate(ModelMatrix, glm::vec3(radius * cos(angle), radius * sin(angle), 10.0f));
             ModelMatrix = glm::rotate(ModelMatrix, angle + glm::radians(90.0f), glm::vec3(0, 0, 1));
+            ModelMatrix = glm::rotate(ModelMatrix, glm::radians(90.0f), glm::vec3(1, 0, 0));
 
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
