@@ -19,7 +19,6 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/shader.hpp>
 #include <common/texture.hpp>
-#include <common/vboindexer.hpp>
 
 int main(void)
 {
@@ -38,7 +37,7 @@ int main(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow(1024, 768, "Tutorial 09 - Loading with AssImp", NULL, NULL);
+    window = glfwCreateWindow(1024, 768, "Lab 3", NULL, NULL);
     if (window == NULL)
     {
         fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the "
@@ -59,26 +58,22 @@ int main(void)
         return -1;
     }
 
-    // Ensure we can capture the escape key being pressed below
+    // Ensure we can capture any key being pressed (in our case, L or esc)
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-    // Hide the mouse and enable unlimited movement
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    // Set the mouse at the center of the screen
-    glfwPollEvents();
-    glfwSetCursorPos(window, 1024 / 2, 768 / 2);
 
     // Dark blue background
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
+
     // Accept fragment if it is closer to the camera than the former one
     glDepthFunc(GL_LESS);
 
     // Cull triangles which normal is not towards the camera
     glEnable(GL_CULL_FACE);
 
+    // Create and bind a vertex array
     GLuint VertexArrayID;
     glGenVertexArrays(1, &VertexArrayID);
     glBindVertexArray(VertexArrayID);
@@ -103,6 +98,13 @@ int main(void)
     std::vector<glm::vec2> indexed_uvs;
     std::vector<glm::vec3> indexed_normals;
     bool res = loadAssImp("suzanne.obj", indices, indexed_vertices, indexed_uvs, indexed_normals);
+
+    // Lets check if we successfully loaded suzanne
+    if (!res)
+    {
+        fprintf(stderr, "Failed to load suzanne\n");
+        return -1;
+    }
 
     // Load it into a VBO
 
@@ -129,13 +131,10 @@ int main(void)
 
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
-    // GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
-    GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
-    glUniform1i(lightOnID, 1); // start with lighting on
 
-    // For speed computation
-    double lastTime = glfwGetTime();
-    int nbFrames = 0;
+    // Set lighting info
+    GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
+    glUniform1i(lightOnID, 1);
 
     static const GLfloat ground_vertices[] = {-8.0f, -8.0f, 0.0f, 8.0f, -8.0f, 0.0f,
                                               -8.0f, 8.0f,  0.0f, 8.0f, 8.0f,  0.0f};
@@ -145,10 +144,6 @@ int main(void)
     };
 
     static const GLfloat ground_normals[] = {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
-
-    // static const GLfloat ground_colors[] = {
-    //     0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f,
-    // };
 
     static const GLuint ground_indices[] = {0, 1, 2, 2, 1, 3};
 
@@ -177,22 +172,9 @@ int main(void)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glBindTexture(GL_TEXTURE_2D, 0);
 
     do
     {
-
-        // Measure speed
-        double currentTime = glfwGetTime();
-        nbFrames++;
-        if (currentTime - lastTime >= 1.0)
-        { // If last prinf() was more than 1sec ago
-            // printf and reset
-            printf("%f ms/frame\n", 1000.0 / double(nbFrames));
-            nbFrames = 0;
-            lastTime += 1.0;
-        }
-
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -200,80 +182,82 @@ int main(void)
         glUseProgram(programID);
 
         // Lighting things
-        static bool lastLState = false;
-        static bool lightOn = true;
+        bool lastL = false;
+        bool lightOn = true;
         if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
         {
-            if (!lastLState)
+            if (!lastL)
             {
-                lightOn = !lightOn; // toggle on key press
+                lightOn = !lightOn; // toggle the light on or off
                 GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
                 glUniform1i(lightOnID, lightOn);
             }
-            lastLState = true;
+            lastL = true;
         }
         else
         {
-            lastLState = false;
+            lastL = false;
         }
 
-        // Compute the MVP matrix from keyboard and mouse input
+        // Compute the MVP matrix from keyboard
         computeMatricesFromInputs();
         glm::mat4 ProjectionMatrix = getProjectionMatrix();
         glm::mat4 ViewMatrix = getViewMatrix();
 
-        // --- Draw ground plane ---
-        {
-            // Set up the ground transformation
-            glm::mat4 groundModel = glm::mat4(1.0f);
-            glm::mat4 groundMVP = ProjectionMatrix * ViewMatrix * groundModel;
+        // Do some work to draw the green rectangle
 
-            glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &groundMVP[0][0]);
-            glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &groundModel[0][0]);
-            glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+        // Set up the ground transformation
+        glm::mat4 groundModel = glm::mat4(1.0f);
+        glm::mat4 groundMVP = ProjectionMatrix * ViewMatrix * groundModel;
 
-            glDisable(GL_CULL_FACE);
+        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &groundMVP[0][0]);
+        glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &groundModel[0][0]);
+        glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glDisable(GL_CULL_FACE);
 
-            // UV -> attrib 1 (shader expects UV here)
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // normals -> attrib 2
-            glEnableVertexAttribArray(2);
-            glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
-            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+        // UV -> attrib 1 (shader expects UV here)
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // bind our green 1x1 texture to unit 0 so shader samples green
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, greenTex);
-            glUniform1i(TextureID, 0);
+        // normals -> attrib 2
+        glEnableVertexAttribArray(2);
+        glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // index and draw
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void *)0);
+        // bind our green 1x1 texture to unit 0 so shader samples green
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, greenTex);
+        glUniform1i(TextureID, 0);
 
-            // cleanup attributes
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
-            glDisableVertexAttribArray(2);
+        // index and draw
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void *)0);
 
-            glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
-        }
+        // cleanup attributes
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(2);
 
+        glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
+
+        // Set up some values for drawing heads
         int numHeads = 8;
-        float radius = 3.75f;    // adjust until ears touch
-        float chinOffset = 1.0f; // adjust so chin just touches z=0
+        float radius = 3.75f;    // trial and error, looks right
+        float chinOffset = 1.0f; // more trial and error
 
+        // For each head...
         for (int i = 0; i < numHeads; i++)
         {
-            float angle = glm::radians(45.0f * i);
+            float anglePerHead = 360 / numHeads;
+            float angle = glm::radians(anglePerHead * i);
 
-            // Position head in a circle around the origin (in X-Y)
+            // Position head in a circle around the origin
             float x = radius * cos(angle);
             float y = radius * sin(angle);
             float z = chinOffset;
@@ -286,9 +270,10 @@ int main(void)
             // Rotate so the head faces radially outward
             ModelMatrix = glm::rotate(ModelMatrix, angle + glm::radians(90.0f), glm::vec3(0, 0, 1));
 
+            // Rotate so their chins are touching green rectangle
             ModelMatrix = glm::rotate(ModelMatrix, glm::radians(90.0f), glm::vec3(1, 0, 0));
 
-            // Draw it
+            // Draw
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
             glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
             glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);

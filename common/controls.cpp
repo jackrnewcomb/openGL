@@ -49,9 +49,9 @@ void computeMatricesFromInputs()
 
     // Handle input
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        theta += orbitSpeed * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         theta -= orbitSpeed * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        theta += orbitSpeed * deltaTime;
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
         phi += orbitSpeed * deltaTime;
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
