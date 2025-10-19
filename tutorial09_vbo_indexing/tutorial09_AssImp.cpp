@@ -129,7 +129,9 @@ int main(void)
 
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
-    GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
+    // GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
+    GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
+    glUniform1i(lightOnID, 1); // start with lighting on
 
     // For speed computation
     double lastTime = glfwGetTime();
@@ -196,6 +198,24 @@ int main(void)
 
         // Use our shader
         glUseProgram(programID);
+
+        // Lighting things
+        static bool lastLState = false;
+        static bool lightOn = true;
+        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+        {
+            if (!lastLState)
+            {
+                lightOn = !lightOn; // toggle on key press
+                GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
+                glUniform1i(lightOnID, lightOn);
+            }
+            lastLState = true;
+        }
+        else
+        {
+            lastLState = false;
+        }
 
         // Compute the MVP matrix from keyboard and mouse input
         computeMatricesFromInputs();
