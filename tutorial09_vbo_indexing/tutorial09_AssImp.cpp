@@ -136,15 +136,19 @@ int main(void)
     GLuint lightOnID = glGetUniformLocation(programID, "lightOn");
     glUniform1i(lightOnID, 1);
 
-    static const GLfloat ground_vertices[] = {-8.0f, -8.0f, 0.0f, 8.0f, -8.0f, 0.0f,
-                                              -8.0f, 8.0f,  0.0f, 8.0f, 8.0f,  0.0f};
+    // Vertex positions for a 10x10 rectangle on the z=0 plane
+    static const GLfloat ground_vertices[] = {-5.0f, -5.0f, 0.0f, 5.0f, -5.0f, 0.0f,
+                                              -5.0f, 5.0f,  0.0f, 5.0f, 5.0f,  0.0f};
 
+    // UV texture coords
     static const GLfloat ground_uvs[] = {
         0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
     };
 
+    // Vertex normals (all facing Z direction) for flat lighting across the rectangle
     static const GLfloat ground_normals[] = {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
 
+    // Indices that create the triangles that make the rectangle
     static const GLuint ground_indices[] = {0, 1, 2, 2, 1, 3};
 
     GLuint groundVertexBuffer, groundUVBuffer, groundNormalBuffer, groundElementBuffer;
@@ -205,50 +209,52 @@ int main(void)
         glm::mat4 ViewMatrix = getViewMatrix();
 
         // Do some work to draw the green rectangle
+        {
+            // Set up the ground transformation
+            glm::mat4 groundModel = glm::mat4(1.0f);
+            glm::mat4 groundMVP = ProjectionMatrix * ViewMatrix * groundModel;
 
-        // Set up the ground transformation
-        glm::mat4 groundModel = glm::mat4(1.0f);
-        glm::mat4 groundMVP = ProjectionMatrix * ViewMatrix * groundModel;
+            glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &groundMVP[0][0]);
+            glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &groundModel[0][0]);
+            glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
-        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &groundMVP[0][0]);
-        glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &groundModel[0][0]);
-        glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+            // Needed to ensure ground plane is visible from both sides
+            glDisable(GL_CULL_FACE);
 
-        glDisable(GL_CULL_FACE);
+            // First attr. buffer, vertices
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, groundVertexBuffer);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+            // Second attr. buffer, UVs
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-        // UV -> attrib 1 (shader expects UV here)
-        glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, groundUVBuffer);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+            // Third attr. buffer, normals
+            glEnableVertexAttribArray(2);
+            glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-        // normals -> attrib 2
-        glEnableVertexAttribArray(2);
-        glBindBuffer(GL_ARRAY_BUFFER, groundNormalBuffer);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
+            // Bind our green 1x1 texture to 0 so green color populates
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, greenTex);
+            glUniform1i(TextureID, 0);
 
-        // bind our green 1x1 texture to unit 0 so shader samples green
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, greenTex);
-        glUniform1i(TextureID, 0);
+            // index and draw
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void *)0);
 
-        // index and draw
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, groundElementBuffer);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void *)0);
+            // cleanup attributes
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+            glDisableVertexAttribArray(2);
 
-        // cleanup attributes
-        glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(2);
-
-        glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
-
+            glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
+        }
         // Set up some values for drawing heads
         int numHeads = 8;
-        float radius = 3.75f;    // trial and error, looks right
+        float radius = 3.75f;    // trial and error to get ears to touch, looks right
         float chinOffset = 1.0f; // more trial and error
 
         // For each head...
@@ -273,29 +279,37 @@ int main(void)
             // Rotate so their chins are touching green rectangle
             ModelMatrix = glm::rotate(ModelMatrix, glm::radians(90.0f), glm::vec3(1, 0, 0));
 
-            // Draw
+            // Send our transformation to the currently bound shader,
+            // in the "MVP" uniform
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
             glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
             glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
             glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
+            // Bind our texture in Texture 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, Texture);
             glUniform1i(TextureID, 0);
 
+            // First attribute buffer : vertices
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
+            // Second attribute buffer : UVs
             glEnableVertexAttribArray(1);
             glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
+            // Third attribute buffer : normals
             glEnableVertexAttribArray(2);
             glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
             glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
+            // Index buffer
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+
+            // Draw
             glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, (void *)0);
         }
 
