@@ -67,6 +67,7 @@ void computeMatricesFromInputs()
 
     float orbitSpeed = 1.0f;
     glm::vec3 origin = glm::vec3(0, 0, 0);
+    direction = glm::normalize(origin - position);
 
     // Move forward
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -114,8 +115,6 @@ void computeMatricesFromInputs()
         position.x = newX;
         position.z = newZ;
     }
-
-    direction = glm::normalize(origin - position);
 
     float FoV = initialFoV; // - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this.
                             // It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
