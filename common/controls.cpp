@@ -44,77 +44,48 @@ void computeMatricesFromInputs()
     double currentTime = glfwGetTime();
     float deltaTime = float(currentTime - lastTime);
 
-    // Get mouse position
-    double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos);
-
-    // Reset mouse position for next frame
-    glfwSetCursorPos(window, 1024 / 2, 768 / 2);
-
-    // Compute new orientation
-    horizontalAngle += mouseSpeed * float(1024 / 2 - xpos);
-    verticalAngle += mouseSpeed * float(768 / 2 - ypos);
-
-    // Direction : Spherical coordinates to Cartesian coordinates conversion
-    glm::vec3 direction(cos(verticalAngle) * sin(horizontalAngle), sin(verticalAngle),
-                        cos(verticalAngle) * cos(horizontalAngle));
-
-    // Right vector
-    glm::vec3 right = glm::vec3(sin(horizontalAngle - 3.14f / 2.0f), 0, cos(horizontalAngle - 3.14f / 2.0f));
-
-    // Up vector
-    glm::vec3 up = glm::cross(right, direction);
+    glm::vec3 origin = glm::vec3(0, 0, 0);
 
     float orbitSpeed = 1.0f;
-    glm::vec3 origin = glm::vec3(0, 0, 0);
-    direction = glm::normalize(origin - position);
 
-    // Move forward
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    {
-        position += direction * deltaTime * speed;
-    }
-    // Move backward
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        position -= direction * deltaTime * speed;
-    }
-    // Strafe right
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        float angle = -orbitSpeed * deltaTime;
-        float s = sin(angle);
-        float c = cos(angle);
+    // r = distance from origin
+    float r = glm::length(position);
 
-        float newX = position.x * c - position.z * s;
-        float newZ = position.x * s + position.z * c;
-        position.x = newX;
-        position.z = newZ;
-    }
-    // Strafe left
+    // Compute current spherical angles
+    float theta = atan2(position.x, position.z);
+    float phi = asin(position.y / r);
+
+    // Horizontal orbit
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        float angle = orbitSpeed * deltaTime;
-        float s = sin(angle);
-        float c = cos(angle);
+        theta -= orbitSpeed * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        theta += orbitSpeed * deltaTime;
 
-        float newX = position.x * c - position.z * s;
-        float newZ = position.x * s + position.z * c;
-        position.x = newX;
-        position.z = newZ;
-    }
-
+    // Vertical orbit
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-    {
-        float angle = orbitSpeed * deltaTime;
-        float s = sin(angle);
-        float c = cos(angle);
+        phi += orbitSpeed * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        phi -= orbitSpeed * deltaTime;
 
-        float newX = position.x * c - position.z * s;
-        float newZ = position.x * s + position.z * c;
-        position.x = newX;
-        position.z = newZ;
-    }
+    // Radial zoom
+    float zoomSpeed = 3.0f;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        r -= zoomSpeed * deltaTime; // zoom in
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        r += zoomSpeed * deltaTime; // zoom out
+
+    // Optional: prevent camera from getting too close or too far
+    r = glm::clamp(r, 1.0f, 50.0f);
+
+    // Convert back to Cartesian coordinates
+    position.x = r * cos(phi) * sin(theta);
+    position.y = r * sin(phi);
+    position.z = r * cos(phi) * cos(theta);
+
+    // Compute direction and up vector
+    glm::vec3 direction = glm::normalize(origin - position);
+    glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), direction));
+    glm::vec3 up = glm::cross(direction, right);
 
     float FoV = initialFoV; // - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this.
                             // It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
@@ -122,9 +93,9 @@ void computeMatricesFromInputs()
     // Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
     ProjectionMatrix = glm::perspective(glm::radians(FoV), 4.0f / 3.0f, 0.1f, 100.0f);
     // Camera matrix
-    ViewMatrix = glm::lookAt(position,             // Camera is here
-                             position + direction, // and looks here : at the same position, plus "direction"
-                             up                    // Head is up (set to 0,-1,0 to look upside-down)
+    ViewMatrix = glm::lookAt(position, // Camera is here
+                             origin,   // and looks here : at the same position, plus "direction"
+                             up        // Head is up (set to 0,-1,0 to look upside-down)
     );
 
     // For the next frame, the "last time" will be "now"
