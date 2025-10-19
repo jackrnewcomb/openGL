@@ -1,3 +1,17 @@
+/*
+Author: Jack Newcomb
+Class: ECE6122
+Last date modified: 10/19/2025
+
+Description:
+
+This is a modified version of the controls.cpp file. This mostly follows the tutorial, but adds some logic for the
+requested keyboard controls for the assignment. In particular, we add handling for WASD inputs, and up/down for radial
+up/down camera movement. Due to the up/down handling, theta and phi (representing horizontal and vertical angles,
+respectively) were implemented. These are translated back to cartesian space for the final position vector.
+
+*/
+
 // Include GLFW
 #include <GLFW/glfw3.h>
 extern GLFWwindow *window; // The "extern" keyword here is to access the variable "window" declared in tutorialXXX.cpp.
@@ -36,48 +50,77 @@ float speed = 3.0f; // 3 units / second
 void computeMatricesFromInputs()
 {
     static double lastTime = glfwGetTime();
-    static float theta = 0.0f; // horizontal angle
-    static float phi = 0.0f;   // vertical angle
 
+    // Define horizontal angle
+    static float theta = 0.0f;
+
+    // Define vertical angle
+    static float phi = 0.0f;
+
+    // Get time delta
     double currentTime = glfwGetTime();
     float deltaTime = float(currentTime - lastTime);
 
+    // Set origin to 0,0,0
     glm::vec3 origin = glm::vec3(0, 0, 0);
 
+    // Developer preference... camera rotation speed and zoom speed respectively
     float orbitSpeed = 1.5f;
     float zoomSpeed = 3.0f;
 
     // Handle input
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    {
+        // Rotate radially left by altering horizontal angle
         theta -= orbitSpeed * deltaTime;
+    }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    {
+        // Rotate radially right by altering horizontal angle
         theta += orbitSpeed * deltaTime;
+    }
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    {
+        // Rotate radially up by altering vertical angle
         phi += orbitSpeed * deltaTime;
+    }
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    {
+        // Rotate radially down by altering vertical angle
         phi -= orbitSpeed * deltaTime;
+    }
 
-    // Keep phi continuous, allow full orbit without flipping
-    const float PI = 3.14159265f;
-    if (phi > PI)
-        phi -= 2 * PI;
-    if (phi < -PI)
-        phi += 2 * PI;
+    // This allows full orbit in the vertical angle
+    float pi = 3.14159265f;
+    if (phi > pi)
+    {
+        phi -= 2 * pi;
+    }
+    if (phi < -pi)
+    {
+        phi += 2 * pi;
+    }
 
-    // Calculate radius (zoom)
+    // Determine radius, aka zoom
     static float r = glm::length(position);
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    {
+        // Decrease the radius by zooming in
         r -= zoomSpeed * deltaTime;
+    }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    {
+        // Increase the radius by zooming out
         r += zoomSpeed * deltaTime;
-    r = glm::clamp(r, 1.0f, 50.0f);
+    }
 
-    // Compute Cartesian coordinates from angles
+    // Get back into cartesian space using phi and theta to find x,y,z
     position.x = r * cos(phi) * sin(theta);
     position.y = r * sin(phi);
     position.z = r * cos(phi) * cos(theta);
 
-    // Always look at origin
+    // Ensure we always are looking at the origin (all rotation requirements are radial, so camera should always be
+    // looking at monkeys)
     glm::vec3 direction = glm::normalize(origin - position);
     glm::vec3 up = glm::vec3(0, 1, 0);
     glm::vec3 right = glm::normalize(glm::cross(up, direction));

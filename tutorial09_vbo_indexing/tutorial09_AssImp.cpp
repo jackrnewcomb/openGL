@@ -1,3 +1,17 @@
+/*
+Author: Jack Newcomb
+Class: ECE6122
+Last date modified: 10/19/2025
+
+Description:
+
+This is a modified version of the tutorial09_AssImp.cpp (replacing tutorial09_several_objects.cpp, as per assignment
+directive). While retaining a lot of the original tutorial code, this also implements logic to produce 8 suzanne heads,
+rotate and translate them as directed by the assignment. It also places a green rectangle at the Z=0 plane, such that
+the suzannes chins just touch the plane.
+
+*/
+
 // Include standard headers
 #include <stdio.h>
 #include <stdlib.h>
@@ -186,8 +200,8 @@ int main(void)
         glUseProgram(programID);
 
         // Lighting things
-        bool lastL = false;
-        bool lightOn = true;
+        static bool lastL = false;
+        static bool lightOn = true;
         if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
         {
             if (!lastL)

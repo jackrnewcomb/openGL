@@ -1,3 +1,16 @@
+/*
+Author: Jack Newcomb
+Class: ECE6122
+Last date modified: 10/19/2025
+
+Description:
+
+This is a modified version of the StandardShading.fragmentshader file. Everything is identical to the
+tutorial, with the exception of some logic at the end that allows for light toggling via a boolean. 
+The bool just adds the specular and diffuse lighting that otherwise would have been there regardless.
+
+*/
+
 #version 330 core
 
 // Interpolated values from the vertex shaders
@@ -55,6 +68,7 @@ void main(){
 	// Toggle the lighting based on lightOn
 	vec3 lighting = MaterialAmbientColor;
 	
+	// Some logic to allow for light toggling via the lightOn bool
 	if (lightOn) {
 		lighting += MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance) +
 		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5) / (distance*distance);
