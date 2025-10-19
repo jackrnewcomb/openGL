@@ -246,7 +246,7 @@ int main(void)
         }
 
         int numHeads = 8;
-        float radius = 2.5f;     // adjust until ears touch
+        float radius = 3.75f;    // adjust until ears touch
         float chinOffset = 1.0f; // adjust so chin just touches z=0
 
         for (int i = 0; i < numHeads; i++)
