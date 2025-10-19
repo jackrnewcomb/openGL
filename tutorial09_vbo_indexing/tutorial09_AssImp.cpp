@@ -135,17 +135,14 @@ int main(void)
     double lastTime = glfwGetTime();
     int nbFrames = 0;
 
-    static const GLfloat ground_vertices[] = {
-        -5.0f, 0.0f, -5.0f, 5.0f, 0.0f, -5.0f, -5.0f, 0.0f, 5.0f, 5.0f, 0.0f, 5.0f,
-    };
+    static const GLfloat ground_vertices[] = {-8.0f, -8.0f, 0.0f, 8.0f, -8.0f, 0.0f,
+                                              -8.0f, 8.0f,  0.0f, 8.0f, 8.0f,  0.0f};
 
     static const GLfloat ground_uvs[] = {
         0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
     };
 
-    static const GLfloat ground_normals[] = {
-        0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-    };
+    static const GLfloat ground_normals[] = {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f};
 
     // static const GLfloat ground_colors[] = {
     //     0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f, 0.0f, 0.8f, 0.0f,
@@ -207,6 +204,14 @@ int main(void)
 
         // --- Draw ground plane ---
         {
+            // Set up the ground transformation
+            glm::mat4 groundModel = glm::mat4(1.0f);
+            glm::mat4 groundMVP = ProjectionMatrix * ViewMatrix * groundModel;
+
+            glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &groundMVP[0][0]);
+            glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &groundModel[0][0]);
+            glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
+
             glDisable(GL_CULL_FACE);
 
             glEnableVertexAttribArray(0);
@@ -240,77 +245,53 @@ int main(void)
             glEnable(GL_CULL_FACE); // re-enable cull face for monkeys
         }
 
-        for (int i = 0; i < 8; i++)
+        int numHeads = 8;
+        float radius = 2.5f;     // adjust until ears touch
+        float chinOffset = 1.0f; // adjust so chin just touches z=0
+
+        for (int i = 0; i < numHeads; i++)
         {
-            auto angle = glm::radians(i * 45.0f);
-            auto radius = 3.5f;
+            float angle = glm::radians(45.0f * i);
 
-            glm::mat4 ModelMatrix = glm::mat4(1.0);
+            // Position head in a circle around the origin (in X-Y)
+            float x = radius * cos(angle);
+            float y = radius * sin(angle);
+            float z = chinOffset;
 
-            // Position heads
-            ModelMatrix = glm::translate(ModelMatrix, glm::vec3(radius * cos(angle), radius * sin(angle), 10.0f));
+            glm::mat4 ModelMatrix = glm::mat4(1.0f);
+
+            // Translate the head into position
+            ModelMatrix = glm::translate(ModelMatrix, glm::vec3(x, y, z));
+
+            // Rotate so the head faces radially outward
             ModelMatrix = glm::rotate(ModelMatrix, angle + glm::radians(90.0f), glm::vec3(0, 0, 1));
+
             ModelMatrix = glm::rotate(ModelMatrix, glm::radians(90.0f), glm::vec3(1, 0, 0));
 
+            // Draw it
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-            // Send our transformation to the currently bound shader,
-            // in the "MVP" uniform
             glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
             glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
             glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
-            glm::vec3 lightPos = glm::vec3(4, 4, 4);
-            glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
-
-            // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, Texture);
-            // Set our "myTextureSampler" sampler to use Texture Unit 0
             glUniform1i(TextureID, 0);
 
-            // 1rst attribute buffer : vertices
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-            glVertexAttribPointer(0,        // attribute
-                                  3,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void *)0 // array buffer offset
-            );
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // 2nd attribute buffer : UVs
             glEnableVertexAttribArray(1);
             glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-            glVertexAttribPointer(1,        // attribute
-                                  2,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void *)0 // array buffer offset
-            );
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // 3rd attribute buffer : normals
             glEnableVertexAttribArray(2);
             glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-            glVertexAttribPointer(2,        // attribute
-                                  3,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void *)0 // array buffer offset
-            );
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
-            // Index buffer
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
-            // Draw the triangles !
-            glDrawElements(GL_TRIANGLES,      // mode
-                           indices.size(),    // count
-                           GL_UNSIGNED_SHORT, // type
-                           (void *)0          // element array buffer offset
-            );
+            glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, (void *)0);
         }
 
         glDisableVertexAttribArray(0);
